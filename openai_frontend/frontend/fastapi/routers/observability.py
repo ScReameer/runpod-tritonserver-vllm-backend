@@ -50,3 +50,7 @@ def ready(request: Request) -> Response:
         )
 
     return Response(status_code=StatusCode.SUCCESS)
+
+@router.get("/ping", tags=["Utilities"])
+def ping(request: Request) -> Response:
+    return ready(request)
