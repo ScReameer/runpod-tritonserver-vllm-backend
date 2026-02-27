@@ -1,4 +1,8 @@
-Local test example:
+Local test:
+
+```bash
+docker compose up --build
+```
 
 ```bash
 MODEL="qwen"
