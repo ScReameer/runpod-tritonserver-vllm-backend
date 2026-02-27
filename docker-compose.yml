@@ -1,0 +1,17 @@
+services:
+  vllm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ipc: host
+    gpus: all
+    environment:
+      - PORT=${PORT:-9000}
+    ports:
+      - "${PORT:-9000}:9000"
+    command: ["python3", "/opt/tritonserver/python/openai/openai_frontend/main.py", "--model-repository", "/models", "--openai-port", "${PORT:-9000}"]
+    volumes:
+      - cache:/runpod-volume
+
+volumes:
+  cache:

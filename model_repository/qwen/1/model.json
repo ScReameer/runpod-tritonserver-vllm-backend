@@ -1,0 +1,7 @@
+{
+    "model":"Qwen/Qwen3-VL-Embedding-2B",
+    "gpu_memory_utilization": 0.8,
+    "trust_remote_code": true,
+    "max_model_len": 2048,
+    "runner": "pooling"
+}
