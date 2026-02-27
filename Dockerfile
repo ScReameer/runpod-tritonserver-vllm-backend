@@ -13,4 +13,4 @@ COPY model_repository /models
 COPY openai_frontend /opt/tritonserver/python/openai/openai_frontend
 COPY vllm_backend /opt/tritonserver/backends/vllm
 
-CMD ["bash", "-lc", "python3 /opt/tritonserver/python/openai/openai_frontend/main.py --model-repository /models --openai-port ${PORT:-9000}"]
+CMD ["bash", "-lc", "python3 /opt/tritonserver/python/openai/openai_frontend/main.py --model-repository /models --openai-port ${PORT}"]
