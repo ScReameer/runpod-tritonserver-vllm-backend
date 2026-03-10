@@ -31,7 +31,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import AnyUrl, BaseModel, ConfigDict, Field, RootModel, confloat, conint
 
@@ -965,6 +965,22 @@ class EmbeddingObject(BaseModel):
     )
 
 
+class ErrorItem(BaseModel):
+    model_config: ConfigDict = ConfigDict(extra="forbid")
+
+    object: Literal["error"] = Field(
+        description="The object type for an item that failed to produce an embedding.",
+    )
+    message: str = Field(
+        ...,
+        description="Error message for this specific input item.",
+    )
+    index: int = Field(
+        ...,
+        description="The index of the failed item in the input list.",
+    )
+
+
 class CreateEmbeddingRequest(BaseModel):
     # Explicitly return errors for unknown fields.
     model_config: ConfigDict = ConfigDict(extra="forbid")
@@ -1005,9 +1021,11 @@ class CreateEmbeddingResponse(BaseModel):
     object: Literal["list"] = Field(
         description="The object type, which is always 'list'.",
     )
-    data: List[EmbeddingObject] = Field(
+    data: List[
+        Annotated[Union[EmbeddingObject, ErrorItem], Field(discriminator="object")]
+    ] = Field(
         ...,
-        description="The list of embeddings.",
+        description="The list of embedding results. Each item can be a successful embedding or an item-level error.",
     )
     model: Union[str, Model2] = Field(
         ...,

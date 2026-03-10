@@ -89,6 +89,8 @@ from schemas.openai import (
     CreateEmbeddingRequest,
     CreateEmbeddingResponse,
     EmbeddingObject,
+    EmbeddingUsage,
+    ErrorItem,
     FinishReason,
     Function1,
     Function2,
@@ -422,17 +424,58 @@ class TritonLLMEngine(LLMEngine):
         async def process_response(response, idx):
             # Extract embedding from response
             embedding_json = _get_output(response)
-            embedding_list = json.loads(embedding_json)
+            parsed_output = json.loads(embedding_json)
             
             usage = _get_usage_from_response(
                 response, metadata.backend, RequestKind.EMBEDDING
             )
-            
-            embedding = self._get_embedding(embedding_list, request.encoding_format)
-            embedding_obj = EmbeddingObject(
-                embedding=embedding, index=idx, object="embedding"
+
+            # Image modality may return mixed item payloads:
+            # {"object":"embedding","embedding":[...],"index":i}
+            # {"object":"error","message":"...","index":i}
+            if request.modality == "image" and isinstance(parsed_output, dict):
+                item_type = parsed_output.get("object")
+                item_index = int(parsed_output.get("index", idx))
+                if item_type == "error":
+                    return (
+                        ErrorItem(
+                            object="error",
+                            message=parsed_output.get(
+                                "message", "Unknown embedding item error"
+                            ),
+                            index=item_index,
+                        ),
+                        usage,
+                    )
+                if item_type == "embedding":
+                    embedding_list = parsed_output.get("embedding", [])
+                    if not isinstance(embedding_list, list):
+                        raise ServerError(
+                            f"Expected list embedding for image item, got: {type(embedding_list)}"
+                        )
+                    return (
+                        EmbeddingObject(
+                            embedding=embedding_list,
+                            index=item_index,
+                            object="embedding",
+                        ),
+                        usage,
+                    )
+                raise ServerError(
+                    f"Unexpected embedding item object type: {item_type}"
+                )
+
+            # Text modality and legacy image responses use plain embedding arrays.
+            if not isinstance(parsed_output, list):
+                raise ServerError(
+                    f"Expected embedding output list, got: {type(parsed_output)}"
+                )
+
+            embedding = self._get_embedding(parsed_output, request.encoding_format)
+            return (
+                EmbeddingObject(embedding=embedding, index=idx, object="embedding"),
+                usage,
             )
-            return embedding_obj, usage
         
         # Create tasks for all responses (non-blocking collection)
         tasks = []
@@ -446,10 +489,10 @@ class TritonLLMEngine(LLMEngine):
         results = await asyncio.gather(*tasks)
         
         # Collect results
-        embedding_objects = []
+        data_items: List[EmbeddingObject | ErrorItem] = []
         total_usage = None
-        for embedding_obj, usage in results:
-            embedding_objects.append(embedding_obj)
+        for item, usage in results:
+            data_items.append(item)
             if usage:
                 if total_usage is None:
                     total_usage = usage
@@ -458,12 +501,17 @@ class TritonLLMEngine(LLMEngine):
                     total_usage.total_tokens += usage.total_tokens
         
         # Validate
-        if len(embedding_objects) < 1:
-            raise ServerError(f"Unexpected number of responses: {len(embedding_objects)}, expected at least 1.")
+        if len(data_items) < 1:
+            raise ServerError(
+                f"Unexpected number of responses: {len(data_items)}, expected at least 1."
+            )
+
+        if total_usage is None:
+            total_usage = EmbeddingUsage(prompt_tokens=0, total_tokens=0)
 
         return CreateEmbeddingResponse(
             object="list",
-            data=embedding_objects,
+            data=data_items,
             model=request.model,
             usage=total_usage,
         )
