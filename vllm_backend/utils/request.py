@@ -339,6 +339,9 @@ class EmbedRequest(RequestBase):
 
         # Get modality (default to "text")
         modality = embedding_request.get("modality", "text")
+        instruction = embedding_request.get("instruction")
+        if isinstance(instruction, str):
+            instruction = instruction.strip() or None
 
         # prompt/input
         input_data = embedding_request["input"]
@@ -350,7 +353,9 @@ class EmbedRequest(RequestBase):
         else:
             # Process as text (default behavior)
             prompt = input_data
-            if isinstance(prompt, str):
+            if instruction is not None:
+                prompt = self._apply_text_instruction(prompt, instruction)
+            elif isinstance(prompt, str):
                 pass  # Single string - use as is
             elif isinstance(prompt, list):
                 if len(prompt) > 0 and isinstance(prompt[0], int):
@@ -380,6 +385,31 @@ class EmbedRequest(RequestBase):
             additional_outputs[tensor_name] = tensor
 
         return prompt, pooling_params, additional_outputs
+
+    def _apply_text_instruction(self, prompt, instruction: str):
+        if not self.tokenizer:
+            raise ValueError("Tokenizer is required for instructed text embeddings")
+
+        def build_prompt(text: str) -> str:
+            conversation = [
+                {"role": "system", "content": instruction},
+                {"role": "user", "content": text},
+            ]
+            return self.tokenizer.apply_chat_template(
+                conversation,
+                tokenize=False,
+                add_generation_prompt=False,
+            )
+
+        if isinstance(prompt, str):
+            return build_prompt(prompt)
+
+        if isinstance(prompt, list) and all(isinstance(item, str) for item in prompt):
+            return {"modality": "text_batch", "texts": [build_prompt(item) for item in prompt]}
+
+        raise ValueError(
+            "instruction is only supported for text embedding inputs provided as a string or list of strings"
+        )
 
     async def execute(self):
         (

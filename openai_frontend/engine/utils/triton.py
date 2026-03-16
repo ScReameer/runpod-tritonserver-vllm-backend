@@ -67,6 +67,17 @@ class TritonLoraConfig:
     is_registered: Optional[bool] = False
 
 
+def _normalize_embedding_instruction(instruction: Optional[str]) -> Optional[str]:
+    if instruction is None:
+        return None
+
+    instruction = instruction.strip()
+    if len(instruction) == 0:
+        return None
+
+    return instruction
+
+
 def _create_vllm_generate_request(
     model,
     prompt,
@@ -255,11 +266,15 @@ def _create_vllm_embedding_request(
 ):
     inputs = {}
     embedding_request = {}
+    instruction = _normalize_embedding_instruction(request.instruction)
+
+    if instruction is not None:
+        embedding_request["instruction"] = instruction
 
     # For image modality, create conversation in OpenAI format
     if request.modality == "image":
         # Prepare conversation for multimodal embedding
-        instruction = "Represent the user's input."
+        instruction = instruction or "Represent the user's input."
 
         # Convert input to list if it's a single string
         if isinstance(request.input, str):
@@ -289,6 +304,14 @@ def _create_vllm_embedding_request(
         embedding_request["input"] = conversations
     else:
         # Text modality - use input as-is
+        if (
+            instruction is not None
+            and isinstance(request.input, list)
+            and (len(request.input) == 0 or isinstance(request.input[0], int))
+        ):
+            raise ClientError(
+                "instruction is only supported for text embedding inputs provided as a string or list of strings"
+            )
         embedding_request["input"] = request.input
 
     embedding_request["modality"] = request.modality
