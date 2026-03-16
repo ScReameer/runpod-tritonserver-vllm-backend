@@ -1000,6 +1000,10 @@ class CreateEmbeddingRequest(BaseModel):
         "text",
         description="The modality of the input. 'text' for text-only embeddings (default), 'image' for image embeddings. When 'image', all inputs are treated as image URLs.",
     )
+    instruction: Optional[str] = Field(
+        None,
+        description="Optional custom system instruction for multimodal embedding conversation construction. When omitted, the server default is used.",
+    )
     dimensions: Optional[int] = Field(
         None,
         description="The number of dimensions the resulting output embeddings should have. Only supported in text-embedding-3 and later models.",
