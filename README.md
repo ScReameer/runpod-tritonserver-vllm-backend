@@ -11,6 +11,7 @@ The API is available at `http://localhost:9000/v1/embeddings`.
 
 **Notes**
 - `instruction` is optional.
+- Empty or whitespace-only `instruction` is treated the same as omitting it.
 - If `instruction` is omitted, the request uses the default behavior.
 - If `instruction` is set, it is used as the custom system instruction for the vLLM conversation.
 - A non-empty `instruction` increases `usage.prompt_tokens`.
