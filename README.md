@@ -1,6 +1,6 @@
-# Multimodal Embeddings on Runpod
+# Multimodal Embeddings
 
-Small OpenAI-compatible embedding server for multimodal models on Triton + vLLM.
+OpenAI-compatible embedding server for multimodal models on Triton + vLLM.
 
 **Local Run**
 ```bash
@@ -78,7 +78,7 @@ Example response:
 }
 ```
 
-**Runpod Check**
+**Runpod example**
 ```bash
 MODEL="Qwen3-VL-Embedding-8B"
 RUNPOD_API_KEY="YOUR_RUNPOD_API_KEY"
